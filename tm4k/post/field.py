@@ -10,11 +10,11 @@ def hasTags(post):
     return post["tags"] != []
 
 
-def getPostTs(post):
+def getPostPublishTs(post):
     return post["publishTime"]
 
 
-def getSubscrLvlName(post:dict)->str:
+def getSubscrLvlName(post: dict) -> str:
     if post.get("subscriptionLevel") is not None:
         return post["subscriptionLevel"]["name"]
     else:

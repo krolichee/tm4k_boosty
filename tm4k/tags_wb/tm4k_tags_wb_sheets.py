@@ -1,16 +1,19 @@
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.workbook.workbook import Workbook
-from tm4k_sheet_names import *
+from ._names import TAG_LIST_SHEET_NAME, TAGS_MATRIX_SHEET_NAME
 
 
 def isTagListSheetExist(wb: Workbook):
-    isSheetExists(wb, TAG_LIST_SHEET_NAME)
-    pass
+    return isSheetExists(wb, TAG_LIST_SHEET_NAME)
+
+
+def isTagMatrixSheetExist(wb: Workbook):
+    return isSheetExists(wb, TAGS_MATRIX_SHEET_NAME)
 
 
 def isSheetExists(wb: Workbook, name: str) -> bool:
     try:
-        wb[name]
+        _ = wb[name]
         return True
     except:
         return False

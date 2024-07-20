@@ -5,8 +5,16 @@
       <excludeFolder url="file://$MODULE_DIR$/blogs" />
       <excludeFolder url="file://$MODULE_DIR$/sketch" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
+      <excludeFolder url="file://$MODULE_DIR$/local" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.11" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+  <component name="PyNamespacePackagesService">
+    <option name="namespacePackageFolders">
+      <list>
+        <option value="$MODULE_DIR$/tm4k/tags_wb" />
+      </list>
+    </option>
   </component>
 </module>

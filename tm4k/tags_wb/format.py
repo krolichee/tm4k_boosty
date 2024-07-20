@@ -3,16 +3,15 @@ from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.cell.cell import Cell
 
-from tm4k_tags_wb_format_config import *
-from tm4k_tags_wb_sheets import isSheetExists
-from tm4k_sheet_names import *
+from _format_config import *
+from ._names import *
 from openpyxl.styles import *
-import openpyxl
-from matplotlib import colors
+
 from openpyxl.styles.fills import PatternFill
 from typing import List
 
-PALLETE = [c.replace('#', "") for c in list(colors.TABLEAU_COLORS.values())]
+from .pallete import getFromPalleteCycle
+
 
 def trace(func):
     def wrapper(*args, **kwargs):
@@ -25,23 +24,21 @@ def trace(func):
               f'returned {original_result!r}')
 
         return original_result
+
     return wrapper
+
 
 class Formatter:
     format_list = {}
     style = {}
 
     # @trace
-    def apply(self, cell:Cell):
+    def apply(self, cell: Cell):
         for k, v in self.format_list.items():
             cell.__setattr__(k, v)
 
     def __init__(self, format_list):
         self.format_list = format_list
-
-
-def getFromPalleteCycle(color_i: int):
-    return PALLETE[color_i % len(PALLETE)]
 
 
 def fillColor(cell, color):
@@ -54,17 +51,17 @@ def formatNotNullCells(col: tuple[Cell], formatter: Formatter):
             formatter.apply(cell)
 
 
-def getTagListPaternFillsSet(wb:Workbook):
+def getTagListPaternFillsSet(wb: Workbook):
     result = {}
-    ws:Worksheet = wb[TAG_LIST_SHEET_NAME]
-    tags_col = getColumnByHeader(ws,"Тег")
+    ws: Worksheet = wb[TAG_LIST_SHEET_NAME]
+    tags_col = getColumnByHeader(ws, "Тег")
     for cell in tags_col[1:]:
         if cell.fill.patternType is not None:
             result[cell.value] = cell.fill.__copy__()
     return result
 
 
-def getTagColumnCellsFormatter(header_cell:Cell, pattern_set:dict,color_i:int):
+def getTagColumnCellsFormatter(header_cell: Cell, pattern_set: dict, color_i: int):
     if header_cell.value in pattern_set.keys():
         formatter_fill: PatternFill = pattern_set[header_cell.value]
     else:
@@ -85,7 +82,7 @@ def getTagColumnCellsFormatter(header_cell:Cell, pattern_set:dict,color_i:int):
 
 
 def colorizeTagMatrixSheet(wb: Workbook):
-    ws:Worksheet = wb[TAGS_MATRIX_SHEET_NAME]
+    ws: Worksheet = wb[TAGS_MATRIX_SHEET_NAME]
     pattern_set = getTagListPaternFillsSet(wb)
     first_row: list[Cell] = next(ws.rows)
     div_col_number = getColumnNumberByHeader(ws, TAGS_MATRIX_DIVIDER_SYMBOL)
@@ -93,10 +90,9 @@ def colorizeTagMatrixSheet(wb: Workbook):
     for j in range(div_col_number, ws.max_column):
         tag_col = getColumnByIndex(ws, j)
         header_cell = tag_col[0]
-        formatter,color_i = getTagColumnCellsFormatter(header_cell,pattern_set,color_i)
+        formatter, color_i = getTagColumnCellsFormatter(header_cell, pattern_set, color_i)
         formatter.apply(header_cell)
         formatNotNullCells(tag_col, formatter)
-
 
 
 def highlightRowWhere(ws: Worksheet, column_header: str, value: str | int):
@@ -163,10 +159,6 @@ def formatTagMatrixWorksheet(wb: Workbook):
     ws.freeze_panes = ws[2][getColumnNumberByHeader(ws, TAGS_MATRIX_DIVIDER_SYMBOL)]
 
 
-def isTagMatrixSheetExist(wb: Workbook):
-    return isSheetExists(wb, TAGS_MATRIX_SHEET_NAME)
-
-
 def getColumnDimensionByHeader(ws: Worksheet, header: str) -> ColumnDimension:
     tags_column_letter = int
     first_row = next(ws.rows)
@@ -191,8 +183,8 @@ def getColumnNumberByHeader(ws: Worksheet, header: str):
     return column_number
 
 
-def getColumnByIndex(ws:Worksheet,index:int):
-    return getColumnByNumber(ws,index+1)
+def getColumnByIndex(ws: Worksheet, index: int):
+    return getColumnByNumber(ws, index + 1)
 
 
 def getColumnByNumber(ws: Worksheet, column_number: int) -> tuple[Cell]:

@@ -1,12 +1,12 @@
 import tkinter
 from tkinter import *
 from tkinter import ttk
-from tm4k_modal_root import root
+from .config import *
 from tkinter import messagebox
 
 
 def createChildWindow():
-    child_window = Toplevel(root)
+    child_window = Toplevel(getRoot())
     child_window.title("Дочернее окно")
 
     label = ttk.Label(child_window, text="Это дочернее окно")

@@ -1,20 +1,21 @@
-import openpyxl
 import pandas as pd
 
-from tm4k_post_field import *
-from tm4k_links import *
+from .messages import TAGS_FILE_ALLREADY_EXIST_QUESTION, NO_ACCES_TO_TAGS_FILE_MESSAGE
+from ..links import *
 
-from tm4k_tags_wb_sheets import *
-from tm4k_tags_wb_format import *
+from format import *
 
-from tm4k_post_edit_payload import getPostPayloadWithoutTags
-from tm4k_sheet_names import *
+from tm4k.post.edit_payload import getPostPayload
+from ._names import *
 
-from tm4k_file_tags import *
+from tm4k.fs.tags_file import *
 
-from tm4k_file_blog import *
+from tm4k.fs.blog_file import *
 
 import requests
+
+from ..links.links import getPostApiLink, getPostLink
+from ..post.field import getPostId, getPostPublishTs, getSubscrLvlName, getPostBlogId
 
 
 def createTagListDf(tag_list: list) -> pd.DataFrame:
@@ -36,9 +37,7 @@ def importTagsFileFromBlog(posts_list: list):
     blog_id = getPostBlogId(posts_list[0])
 
     if checkTagsFileExists(blog_id):
-        if not messagebox.askquestion("??", "Файл тегов уже существует. "
-                                            "Перезапись приведёт к потере неопубликованных тегов и замене матрицы тегов. "
-                                            "\nПерезаписать?") == 'yes':
+        if not messagebox.askquestion("??", TAGS_FILE_ALLREADY_EXIST_QUESTION) == 'yes':
             return
     tag_list = getTagListFromBlog(posts_list)
     tag_list_df = createTagListDf(tag_list)
@@ -48,7 +47,7 @@ def importTagsFileFromBlog(posts_list: list):
     try:
         writer = getTagsFileWriter(blog_id, 'w')
     except:
-        messagebox.showwarning("!!", "Нет доступа к файлу тегов. Возможно, от открыт в Excel")
+        messagebox.showwarning("!!", NO_ACCES_TO_TAGS_FILE_MESSAGE)
         return
 
     tag_list_df.to_excel(writer, index=False, sheet_name=TAG_LIST_SHEET_NAME)
@@ -137,7 +136,7 @@ def getUpdatedTagMatrixDfFromWorkbook(wb: Workbook):
     df1, raw_matrix_df, div_df = splitDfByDividerColumn(tag_matrix_df, TAGS_MATRIX_DIVIDER_SYMBOL)
     sorted_raw_matrix_df = addAndSortByHeaderList(raw_matrix_df, tag_list)
     repl_sorted_raw_matrix_df = replaceNotNullCellsToColumnHeader(sorted_raw_matrix_df)
-    new_tag_matrix_df = pd.concat([df1,div_df, repl_sorted_raw_matrix_df], axis=1)
+    new_tag_matrix_df = pd.concat([df1, div_df, repl_sorted_raw_matrix_df], axis=1)
     return new_tag_matrix_df
 
 
@@ -145,7 +144,7 @@ def getPostDict(post: dict):
     result = {"Название": post["title"],
               "Уровень подписки": getSubscrLvlName(post),
               "ID": getPostId(post),
-              "TS": getPostTs(post),
+              "TS": getPostPublishTs(post),
               "Ссылка": getPostLink(post)
               }
     for tag_obj in post["tags"]:
@@ -233,30 +232,29 @@ def updateMatrixPostsByBlogId(blog_id: str):
 
 
 def restoreTs(blog_id):
-    "Матрица тегов Restored"
     posts_list = openPostsList(blog_id)
-    post_ids = {'ID': [],
+    post_id_ts_list = {'ID': [],
                 'TS': []}
     for post in posts_list:
-        id = getPostId(post)
-        post_ids['ID'].append(id)
-        ts = getPostTs(post)
-        post_ids['TS'].append(ts)
+        post_id = getPostId(post)
+        post_id_ts_list['ID'].append(post_id)
+        ts = getPostPublishTs(post)
+        post_id_ts_list['TS'].append(ts)
     writer = getTagsFileWriter(blog_id, mode='a', if_sheet_exists='replace')
     wb = writer.book
     no_ts_ws = wb[TAGS_MATRIX_SHEET_NAME]
     no_ts_df = getDfFromWorksheet(no_ts_ws)
-    post_ids_df = pd.DataFrame(post_ids)
-    restoredDf = no_ts_df.merge(post_ids_df, how="left", on="ID")
+    post_ids_df = pd.DataFrame(post_id_ts_list)
+    restored_df = no_ts_df.merge(post_ids_df, how="left", on="ID")
 
-    missing_ts_mask = restoredDf['TS'].isna()
-    restoredDf.loc[missing_ts_mask, 'TS'] = restoredDf.loc[missing_ts_mask, 'ID'].apply(lambda x: getPostTs(
+    missing_ts_mask = restored_df['TS'].isna()
+    restored_df.loc[missing_ts_mask, 'TS'] = restored_df.loc[missing_ts_mask, 'ID'].apply(lambda x: getPostPublishTs(
         requests.get(
             getPostApiLink(blog_id, x))
         .json()))
-    restoredDf = sortDfByHeaderList(restoredDf, TAGS_MATRIX_DF_COLS_LIST)
-    restoredDf = restoredDf.sort_values(by='TS', ascending=False)
-    restoredDf.to_excel(writer, "Матрица тегов Restored TS", index=False)
+    restored_df = sortDfByHeaderList(restored_df, TAGS_MATRIX_DF_COLS_LIST)
+    restored_df = restored_df.sort_values(by='TS', ascending=False)
+    restored_df.to_excel(writer, "Матрица тегов Restored TS", index=False)
     writer._save()
 
 
@@ -287,7 +285,7 @@ def publish(blog_id: str, token: str):
             if tag_cell is not None:
                 tag_list.append(tag_cell)
 
-        payload = getPostPayloadWithoutTags(post)
+        payload = getPostPayload(post)
 
         payload['tags'] = ",".join(tag_list)
 

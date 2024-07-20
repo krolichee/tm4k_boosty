@@ -1,5 +1,5 @@
-from tm4k_links import getPostLink
-from tm4k_post_field import hasTags
+from ..links import getPostLink
+from tm4k.post.field import hasTags
 
 
 def filterAllTaggedPosts(posts_list):

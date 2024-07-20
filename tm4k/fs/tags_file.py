@@ -1,5 +1,5 @@
 import os
-from tm4k_file_blog import getBlogFolderPath
+from blog_file import getBlogFolderPath
 from pandas.io.excel._base import ExcelWriter as Writer
 from typing import Literal
 

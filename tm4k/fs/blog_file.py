@@ -1,10 +1,10 @@
 import json
 import os
 
-from tm4k_blog_parse import parseBlog
+from tm4k.parse.parse import parseBlog
 
 from tkinter import messagebox
-from tm4k_status import updateStatus
+from tm4k.status_label.status_label import updateStatus
 
 
 def getBlogFilePath(blog_id: str) -> str:
@@ -28,15 +28,10 @@ def checkBlogFolderExists(blog_id: str) -> bool:
 
 
 def openPostsList(blog_id: str) -> list:
-    """
-    :rtype: list
-    :param path:
-    :return:
-    """
     path = getBlogFilePath(blog_id)
     if not checkBlogFileExists(blog_id):
-        messagebox.showwarning("!!","Файл блога не существует")
-        return
+        messagebox.showwarning("!!", "Файл блога не существует")
+        return list()
     posts_file = open(path, 'r', encoding='utf-8')
     posts_file_string = posts_file.read()
     posts_file.close()
@@ -76,9 +71,9 @@ def blogToFile(blog_id: str, token: str):
     for post in blog_posts:
         if not post['hasAccess']:
             # todo
-            messagebox.showwarning("!!","Указанный токен не позволяет получить доступ ко всем постам. "
-                                                    "Содержимое .boosty файла будет неполным"
-                                                    "\nТакже неавторизованный токен не позволит загрузить теги")
+            messagebox.showwarning("!!", "Указанный токен не позволяет получить доступ ко всем постам. "
+                                         "Содержимое .boosty файла будет неполным"
+                                         "\nТакже неавторизованный токен не позволит загрузить теги")
             updateStatus("Нет доступа")
             break
 
