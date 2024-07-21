@@ -1,11 +1,10 @@
 import pandas as pd
 import numpy as np
 
-from .format.utils import highlightRowWhereIn
 import requests
 
 from .format import *
-from .messages import TAGS_FILE_ALLREADY_EXIST_QUESTION, NO_ACCES_TO_TAGS_FILE_MESSAGE
+from tm4k.messages import TAGS_FILE_ALLREADY_EXIST_QUESTION, NO_ACCES_TO_TAGS_FILE_MESSAGE
 
 
 from ._names import *
@@ -16,11 +15,11 @@ from tm4k.post.edit_payload import getPostPayload
 
 
 from tm4k.links import getPostApiLink, getPostLink
-from tm4k.post.field import getPostId, getPostPublishTs, getSubscrLvlName, getPostBlogId
+from tm4k.post.field import *
 
+#todo обновление файла с сохранением цветов тегов, комментариев и т.п.
 
 def createTagListDf(tag_list: list) -> pd.DataFrame:
-    # adjusted_tag_list = adjust_list_size(tag_list,length)
     return pd.DataFrame({'Тег': tag_list, 'Комментарий': [None] * len(tag_list)})
 
 
@@ -137,6 +136,7 @@ def splitDfByDividerColumn(df: pd.DataFrame, column_name: str):
 
 
 def getUpdatedTagMatrixDfFromWorkbook(wb: Workbook):
+    # TODO обработка повторяющихся столбцов
     tag_list = getTagListFromWorkbook(wb)
     tag_matrix_df = getTagMatrixDfFromWorkbook(wb)
     df1, raw_matrix_df, div_df = splitDfByDividerColumn(tag_matrix_df, TAGS_MATRIX_DIVIDER_SYMBOL)
@@ -227,14 +227,11 @@ def updateMatrixPostsByBlogId(blog_id: str):
             post_df = getPostDf(post)
             matrix_df = pd.concat([matrix_df, post_df], ignore_index=True, axis='rows')
             new_ids.append(post_id)
-    # writer = Writer("/boosty/marcykatya/tags1.xlsx", engine='openpyxl', mode='w')
-    print(new_ids)
     matrix_df = matrix_df.sort_values(by='TS', ascending=False)
     matrix_df.to_excel(writer, "updateMatrixPostsByBlogId", index=False)
     wb = writer.book
     highlightRowWhereIn(wb["updateMatrixPostsByBlogId"], "ID", new_ids)
     writer._save()
-    startfileTagsFile(blog_id)
 
 
 def restoreTs(blog_id):
@@ -265,9 +262,9 @@ def restoreTs(blog_id):
 
 
 def publish(blog_id: str, token: str):
-    path = getTagsFilePath(blog_id)
+    #todo сначала апдейт, потом все эти действия
 
-    writer = pd.ExcelWriter(path, engine='openpyxl', mode='a')
+    writer = getTagsFileWriter(blog_id,'a')
     wb: Workbook = writer.book
     ws = wb[TAGS_MATRIX_SHEET_NAME]
     df = getDfFromWorksheet(ws)
@@ -280,11 +277,9 @@ def publish(blog_id: str, token: str):
         row_df = df.loc[df['ID'] == getPostId(post)]
 
         tag_list = []
-
-        # todo заадекватить
         _, tags_df = splitDfByHeader(row_df, TAGS_MATRIX_DIVIDER_SYMBOL, +1)
 
-        # todo if tag_cell is not None: tag_cell = tag_cell.header
+        tags_df = replaceNotNullCellsToColumnHeader(tags_df)
 
         for tag_cell in tags_df.iloc[0]:
             print(tag_cell)

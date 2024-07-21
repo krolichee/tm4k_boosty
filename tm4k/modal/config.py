@@ -1,9 +1,9 @@
-__all__ = ['setRoot', 'getRoot']
+__all__ = ['setModalRoot', 'getRoot']
 
 _root = None
 
 
-def setRoot(root):
+def setModalRoot(root):
     _root = root
 
 

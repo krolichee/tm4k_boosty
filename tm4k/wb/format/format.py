@@ -9,8 +9,8 @@ from openpyxl.styles import *
 from openpyxl.styles.fills import PatternFill
 
 from .pallete import getFromPalleteCycle
-from .utils import fillEvenOdd, getColumnDimensionByHeader, getColumnNumberByHeader, getColumnByIndex, \
-    getColumnByHeader, formatNotNullCells, getTagListPaternFillsSet
+
+from .utils import *
 
 
 def getTagColumnCellsFormatter(header_cell: Cell, pattern_set: dict, color_i: int):
@@ -36,7 +36,6 @@ def getTagColumnCellsFormatter(header_cell: Cell, pattern_set: dict, color_i: in
 def colorizeTagMatrixSheet(wb: Workbook):
     ws: Worksheet = wb[TAGS_MATRIX_SHEET_NAME]
     pattern_set = getTagListPaternFillsSet(wb)
-    first_row: list[Cell] = next(ws.rows)
     div_col_number = getColumnNumberByHeader(ws, TAGS_MATRIX_DIVIDER_SYMBOL)
     color_i = 0
     for j in range(div_col_number, ws.max_column):

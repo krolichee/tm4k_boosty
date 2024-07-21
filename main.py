@@ -1,5 +1,5 @@
-import tm4k.modal.config as modal_cfg
-import tm4k.status_label.config as status_cfg
+from tm4k.modal import *
+from tm4k.status_label import *
 
 from tm4k.wb.commands import *
 
@@ -9,11 +9,10 @@ import tkinter
 from tkinter import *
 from tkinter import ttk
 
-from config import token as cfg_token,blog_id as cfg_blog_id
+from config import token as cfg_token, blog_id as cfg_blog_id
 
 blog_id = cfg_blog_id
 token = cfg_token
-
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -26,7 +25,7 @@ def setEntryText(entry: tkinter.Entry, text):
 
 root = Tk()
 
-modal_cfg.setRoot(root)
+setModalRoot(root)
 
 frm = ttk.Frame(root, padding=10)
 frm.grid()
@@ -38,13 +37,13 @@ token_entry = ttk.Entry(frm, validate="all")
 setEntryText(token_entry, cfg_token)
 
 status_label = ttk.Label(frm, text="", foreground="dark gray")
-status_cfg.setLabel(status_label)
+setStatusLabel(status_label)
 
 
 def updateBlogId(_):
     global blogid_entry
     global blog_id
-    blog_id=blogid_entry.get()
+    blog_id = blogid_entry.get()
 
 
 def updateToken(_):
@@ -52,8 +51,9 @@ def updateToken(_):
     global token
     token = token_entry.get()
 
+
 blogid_entry.bind("<KeyRelease>", updateBlogId)
-token_entry.bind("<KeyRelease>",updateToken)
+token_entry.bind("<KeyRelease>", updateToken)
 
 children = [
     [ttk.Label(frm, text="Id блога"), blogid_entry],
@@ -87,7 +87,8 @@ def formatGrid():
         for j in range(len(children[i])):
             children[i][j].grid(row=i, column=j, columnspan=int(max_column_number / len(children[i])), sticky="we"
                                 , pady=2)
-formatGrid()
 
+
+formatGrid()
 
 root.mainloop()

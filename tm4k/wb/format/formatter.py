@@ -1,4 +1,6 @@
 from openpyxl.cell.cell import Cell
+
+__all__ = ['Formatter']
 class Formatter:
     format_list = {}
     style = {}

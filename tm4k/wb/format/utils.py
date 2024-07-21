@@ -3,8 +3,10 @@ from openpyxl.cell import Cell
 from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.worksheet.worksheet import Worksheet
 
-from tm4k.wb._names import TAG_LIST_SHEET_NAME
-from tm4k.wb.format import EVEN_ODD_FILLS, Formatter, HIGHLIGHT_FILL
+from tm4k.wb._names import *
+from tm4k.wb.format._format_config import *
+from formatter import *
+
 
 
 def fillEvenOdd(ws: Worksheet):

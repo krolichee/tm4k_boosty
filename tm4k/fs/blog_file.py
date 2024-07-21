@@ -5,9 +5,11 @@ from .fs import mkdirIfNotExist, buildDirRecu
 from tm4k.parse import parseBlog
 
 from tkinter import messagebox
-from tm4k.status_label.status_label import updateStatus
+from tm4k.status_label import updateStatus
+from tm4k.messages import *
 
 
+#todo обновление файла блога новыми постами
 def getBlogFilePath(blog_id: str) -> str:
     return getBlogFolderDir(blog_id) + ".boosty.json"
 
@@ -26,7 +28,7 @@ def checkBlogFileExists(blog_id: str) -> bool:
 def openPostsList(blog_id: str) -> list:
     path = getBlogFilePath(blog_id)
     if not checkBlogFileExists(blog_id):
-        messagebox.showwarning("!!", "Файл блога не существует")
+        messagebox.showwarning("!!", BLOG_FILE_NOT_EXIST_MESSAGE)
         return list()
     posts_file = open(path, 'r', encoding='utf-8')
     posts_file_string = posts_file.read()
@@ -47,24 +49,15 @@ def postsListToFile(posts_list: list, blog_id: str):
 
 
 def blogToFile(blog_id: str, token: str):
-    """
-    :param blog_id:
-    :type blog_id: str
-    :type token: str
-    """
-    # print(os.path.abspath(os.curdir))
-    # time.sleep(1)
     if checkBlogFileExists(blog_id):
-        if not messagebox.askquestion("??", "Файл блога уже существует. Продолжить?", icon='warning') == 'yes':
+        if not messagebox.askquestion("??", BLOG_FILE_EXISTS_REWRITE_QUESTION, icon='warning') == 'yes':
             return
     updateStatus("Начало загрузки блога...")
     blog_posts = parseBlog(blog_id, token)
     for post in blog_posts:
         if not post['hasAccess']:
             # todo
-            messagebox.showwarning("!!", "Указанный токен не позволяет получить доступ ко всем постам. "
-                                         "Содержимое .boosty файла будет неполным"
-                                         "\nТакже неавторизованный токен не позволит загрузить теги")
+            messagebox.showwarning("!!", NON_AUTH_TOKEN_MESSAGE)
             updateStatus("Нет доступа")
             break
 
