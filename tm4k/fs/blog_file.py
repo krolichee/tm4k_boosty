@@ -1,29 +1,25 @@
 import json
 import os
 
-from tm4k.parse.parse import parseBlog
+from .fs import mkdirIfNotExist, buildDirRecu
+from tm4k.parse import parseBlog
 
 from tkinter import messagebox
 from tm4k.status_label.status_label import updateStatus
 
 
 def getBlogFilePath(blog_id: str) -> str:
-    return getBlogFolderPath(blog_id) + '.boosty.json'
+    return getBlogFolderDir(blog_id) + ".boosty.json"
 
 
-def getBlogFolderPath(blog_id: str) -> str:
-    return "blogs/" + blog_id + '/'
+def getBlogFolderDir(blog_id: str) -> str:
+    return f"blogs/{blog_id}/"
 
 
 def checkBlogFileExists(blog_id: str) -> bool:
     path = getBlogFilePath(blog_id)
     abs_path = os.path.abspath(path)
     print(abs_path)
-    return os.path.isfile(path)
-
-
-def checkBlogFolderExists(blog_id: str) -> bool:
-    path = getBlogFolderPath(blog_id)
     return os.path.isfile(path)
 
 
@@ -38,16 +34,11 @@ def openPostsList(blog_id: str) -> list:
     return json.loads(posts_file_string)
 
 
-def postsListToFile(posts_list: list, blog_id: str):
-    # print("Всего постов: " + str(len(posts_list)))
-    path = getBlogFilePath(blog_id)
 
-    # path = "blogs"
-    # mkdirIfNotExist(path)
-    # path += '/' + blog_id
-    # mkdirIfNotExist(path)
-    # path += "/.boosty"
-    # print(path)
+def postsListToFile(posts_list: list, blog_id: str):
+    path = getBlogFilePath(blog_id)
+    buildDirRecu(path)
+
 
     open_method = 'w'
     file = open(path, open_method, encoding='utf-8')

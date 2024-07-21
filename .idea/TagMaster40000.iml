@@ -13,7 +13,7 @@
   <component name="PyNamespacePackagesService">
     <option name="namespacePackageFolders">
       <list>
-        <option value="$MODULE_DIR$/tm4k/tags_wb" />
+        <option value="$MODULE_DIR$/tm4k/wb" />
       </list>
     </option>
   </component>

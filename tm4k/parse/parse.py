@@ -7,7 +7,7 @@ from tm4k.post.field import getPostPublishTs
 from tm4k.status_label.status_label import updateStatus
 
 
-def parseBlog(blog_id, token=""):
+def parseBlog(blog_id, token="")->list:
     blog_posts_list = []
     base_url = getBlogPostQLink(blog_id)
     params = {'to_ts': int(time.time()), 'limit': 50}
@@ -17,7 +17,11 @@ def parseBlog(blog_id, token=""):
     while True:
         request_url = f"{base_url}?{urlencode(params)}"
         resp = requests.get(request_url, headers=headers)
-        request_posts_list = list(resp.json()["data"])
+        try:
+            request_posts_list = list(resp.json()["data"])
+        except:
+            print(resp.text)
+            raise
         if not len(request_posts_list):
             break
         blog_posts_list += request_posts_list

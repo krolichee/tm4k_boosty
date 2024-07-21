@@ -1,21 +1,22 @@
 import pandas as pd
+import numpy as np
 
+from .format.utils import highlightRowWhereIn
+import requests
+
+from .format import *
 from .messages import TAGS_FILE_ALLREADY_EXIST_QUESTION, NO_ACCES_TO_TAGS_FILE_MESSAGE
-from ..links import *
 
-from format import *
 
-from tm4k.post.edit_payload import getPostPayload
 from ._names import *
 
 from tm4k.fs.tags_file import *
-
 from tm4k.fs.blog_file import *
+from tm4k.post.edit_payload import getPostPayload
 
-import requests
 
-from ..links.links import getPostApiLink, getPostLink
-from ..post.field import getPostId, getPostPublishTs, getSubscrLvlName, getPostBlogId
+from tm4k.links import getPostApiLink, getPostLink
+from tm4k.post.field import getPostId, getPostPublishTs, getSubscrLvlName, getPostBlogId
 
 
 def createTagListDf(tag_list: list) -> pd.DataFrame:
@@ -37,25 +38,27 @@ def importTagsFileFromBlog(posts_list: list):
     blog_id = getPostBlogId(posts_list[0])
 
     if checkTagsFileExists(blog_id):
-        if not messagebox.askquestion("??", TAGS_FILE_ALLREADY_EXIST_QUESTION) == 'yes':
+        if messagebox.askquestion("??", TAGS_FILE_ALLREADY_EXIST_QUESTION) == 'no':
             return
+    else:
+        buildDirRecu(getTagsFilePath(blog_id))
+
     tag_list = getTagListFromBlog(posts_list)
     tag_list_df = createTagListDf(tag_list)
-    tag_matrix_df = getTagMatrixDf(posts_list, tag_list)
-
-    path = getTagsFilePath(blog_id)
+    tag_matrix_df = createTagMatrixDf(posts_list, tag_list)
     try:
         writer = getTagsFileWriter(blog_id, 'w')
     except:
         messagebox.showwarning("!!", NO_ACCES_TO_TAGS_FILE_MESSAGE)
         return
 
+    tag_matrix_df = fillDividerColumn(tag_matrix_df)
+
     tag_list_df.to_excel(writer, index=False, sheet_name=TAG_LIST_SHEET_NAME)
     tag_matrix_df.to_excel(writer, index=False, sheet_name=TAGS_MATRIX_SHEET_NAME)
     workbook = writer.book
     formatWorkbook(workbook)
     writer._save()
-    startfileTagsFile(blog_id)
 
 
 def fillDividerColumn(df: pd.DataFrame) -> pd.DataFrame:
@@ -119,8 +122,11 @@ def addAndSortByHeaderList(df: pd.DataFrame, header_list: list):
 
 
 def replaceNotNullCellsToColumnHeader(df: pd.DataFrame):
+    print(df)
     for col in df.columns:
-        df[col] = df[col].apply(lambda x: col if pd.notnull(x) else x)
+        df[col] = np.where(df[col].isna(), pd.NA, col)
+        df[str(col)] = df[str(col)].apply(lambda x: col if True else pd.NA)
+        df[col] = df[col].apply(lambda x: pd.NA if pd.isna(x) else col)
     return df
 
 
@@ -159,7 +165,7 @@ def getPostDf(post):
     return post_df
 
 
-def getTagMatrixDf(posts_list: list, tag_list: list):
+def createTagMatrixDf(posts_list: list, tag_list: list):
     df = pd.DataFrame(columns=TAGS_MATRIX_DF_COLS_LIST + [TAGS_MATRIX_DIVIDER_SYMBOL] + tag_list)
     for post in posts_list:
         post_df = getPostDf(post)
@@ -169,7 +175,7 @@ def getTagMatrixDf(posts_list: list, tag_list: list):
 
 def getDfFromWorksheet(ws: Worksheet):
     data = ws.values
-    columns = next(data)
+    columns = [str(x) for x in next(data)]
     df = pd.DataFrame(data, columns=columns)
     return df
 

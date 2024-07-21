@@ -1,2 +1,2 @@
-token = ""
-blog_id = ""
+blog_id = "sashko_podletc"
+token = "42361d070e8041c72261d96211e050fc6db698c91cc086a5f7a74214a7e390d0"
