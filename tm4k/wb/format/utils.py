@@ -4,8 +4,8 @@ from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.worksheet.worksheet import Worksheet
 
 from tm4k.wb._names import *
-from tm4k.wb.format._format_config import *
-from formatter import *
+from ._format_config import *
+from .formatter import *
 
 
 

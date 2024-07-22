@@ -6,25 +6,24 @@ import requests
 from .format import *
 from tm4k.messages import TAGS_FILE_ALLREADY_EXIST_QUESTION, NO_ACCES_TO_TAGS_FILE_MESSAGE
 
-
 from ._names import *
 
 from tm4k.fs.tags_file import *
 from tm4k.fs.blog_file import *
 from tm4k.post.edit_payload import getPostPayload
 
-
 from tm4k.links import getPostApiLink, getPostLink
 from tm4k.post.field import *
 
-#todo обновление файла с сохранением цветов тегов, комментариев и т.п.
+
+# todo обновление файла с сохранением цветов тегов, комментариев и т.п.
 
 def createTagListDf(tag_list: list) -> pd.DataFrame:
     return pd.DataFrame({'Тег': tag_list, 'Комментарий': [None] * len(tag_list)})
 
 
 def importTagsFileByBlogId(blog_id: str):
-    posts_list = openPostsList(blog_id)
+    posts_list = openBlogFile(blog_id)
     if posts_list is not None:
         importTagsFileFromBlog(posts_list)
 
@@ -37,7 +36,7 @@ def importTagsFileFromBlog(posts_list: list):
     blog_id = getPostBlogId(posts_list[0])
 
     if checkTagsFileExists(blog_id):
-        if messagebox.askquestion("??", TAGS_FILE_ALLREADY_EXIST_QUESTION) == 'no':
+        if mb.ask(TAGS_FILE_ALLREADY_EXIST_QUESTION) == 'no':
             return
     else:
         buildDirRecu(getTagsFilePath(blog_id))
@@ -48,7 +47,7 @@ def importTagsFileFromBlog(posts_list: list):
     try:
         writer = getTagsFileWriter(blog_id, 'w')
     except:
-        messagebox.showwarning("!!", NO_ACCES_TO_TAGS_FILE_MESSAGE)
+        mb.warn(NO_ACCES_TO_TAGS_FILE_MESSAGE)
         return
 
     tag_matrix_df = fillDividerColumn(tag_matrix_df)
@@ -120,7 +119,7 @@ def addAndSortByHeaderList(df: pd.DataFrame, header_list: list):
     return sortDfByHeaderList(df, header_list)
 
 
-def replaceNotNullCellsToColumnHeader(df: pd.DataFrame):
+def replaceNotNullCellsToColumnHeaderDf(df: pd.DataFrame):
     print(df)
     for col in df.columns:
         df[col] = np.where(df[col].isna(), pd.NA, col)
@@ -141,7 +140,7 @@ def getUpdatedTagMatrixDfFromWorkbook(wb: Workbook):
     tag_matrix_df = getTagMatrixDfFromWorkbook(wb)
     df1, raw_matrix_df, div_df = splitDfByDividerColumn(tag_matrix_df, TAGS_MATRIX_DIVIDER_SYMBOL)
     sorted_raw_matrix_df = addAndSortByHeaderList(raw_matrix_df, tag_list)
-    repl_sorted_raw_matrix_df = replaceNotNullCellsToColumnHeader(sorted_raw_matrix_df)
+    repl_sorted_raw_matrix_df = replaceNotNullCellsToColumnHeaderDf(sorted_raw_matrix_df)
     new_tag_matrix_df = pd.concat([df1, div_df, repl_sorted_raw_matrix_df], axis=1)
     return new_tag_matrix_df
 
@@ -218,7 +217,7 @@ def updateMatrixPostsByBlogId(blog_id: str):
     writer = getTagsFileWriter(blog_id, 'a')
     wb = writer.book
     matrix_df = getTagMatrixDfFromWorkbook(wb)
-    posts_list = openPostsList(blog_id)
+    posts_list = openBlogFile(blog_id)
     matrix_df_id_list = list(matrix_df["ID"])
     new_ids = []
     for post in posts_list:
@@ -235,9 +234,9 @@ def updateMatrixPostsByBlogId(blog_id: str):
 
 
 def restoreTs(blog_id):
-    posts_list = openPostsList(blog_id)
+    posts_list = openBlogFile(blog_id)
     post_id_ts_list = {'ID': [],
-                'TS': []}
+                       'TS': []}
     for post in posts_list:
         post_id = getPostId(post)
         post_id_ts_list['ID'].append(post_id)
@@ -261,26 +260,30 @@ def restoreTs(blog_id):
     writer._save()
 
 
-def publish(blog_id: str, token: str):
-    #todo сначала апдейт, потом все эти действия
+def normalizeAndFormatTagsFile(blog_id):
+    writer = getTagsFileWriter(blog_id, 'a', 'replace')
+    wb: Workbook = writer.book
+    ws: Worksheet = wb[TAGS_MATRIX_SHEET_NAME]
+    df = getDfFromWorksheet(ws)
+    df = replaceNotNullCellsToColumnHeaderDf(df)
+    df.to_excel(writer, TAGS_MATRIX_SHEET_NAME, index=False)
+    formatWorkbook(wb)
+    writer._save()
 
-    writer = getTagsFileWriter(blog_id,'a')
+
+def publish(blog_id: str, token: str):
+    normalizeAndFormatTagsFile(blog_id)
+    writer = getTagsFileWriter(blog_id, 'a')
     wb: Workbook = writer.book
     ws = wb[TAGS_MATRIX_SHEET_NAME]
     df = getDfFromWorksheet(ws)
-
     headers = {'Authorization': f'Bearer {token}'}
-    posts_list = openPostsList(blog_id)
+    posts_list = openBlogFile(blog_id)
     for post in posts_list:
         post_id = getPostId(post)
-
         row_df = df.loc[df['ID'] == getPostId(post)]
-
         tag_list = []
         _, tags_df = splitDfByHeader(row_df, TAGS_MATRIX_DIVIDER_SYMBOL, +1)
-
-        tags_df = replaceNotNullCellsToColumnHeader(tags_df)
-
         for tag_cell in tags_df.iloc[0]:
             print(tag_cell)
             if tag_cell is not None:

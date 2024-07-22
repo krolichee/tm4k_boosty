@@ -10,6 +10,7 @@ from tkinter import *
 from tkinter import ttk
 
 from config import token as cfg_token, blog_id as cfg_blog_id
+from typing import Callable
 
 blog_id = cfg_blog_id
 token = cfg_token
@@ -55,10 +56,15 @@ def updateToken(_):
 blogid_entry.bind("<KeyRelease>", updateBlogId)
 token_entry.bind("<KeyRelease>", updateToken)
 
+def createTm4kButton(text:str,command:Callable|tuple[Callable]):
+    return ttk.Button(frm, text=text, command=command)
+
 children = [
     [ttk.Label(frm, text="Id блога"), blogid_entry],
     [ttk.Label(frm, text="Токен авторизации"), token_entry],
-    [ttk.Button(frm, text="Загрузить блог в файл", command=lambda: blogToFile(blog_id, token))],
+    [ttk.Button(frm, text="Загрузить блог в файл", command=lambda: parseBlogToFile(blog_id, token))],
+    [createTm4kButton("Загрузить новые посты в файл блога",
+                      lambda:(refreshBlogFile(blog_id,token)))],
     [ttk.Button(frm, text="Импортировать файл тегов", command=lambda: (importTagsFileByBlogId(blog_id),
                                                                        startfileTagsFile(blog_id)))],
     [ttk.Button(frm, text="RestoreTS", command=lambda: (

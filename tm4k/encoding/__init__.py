@@ -1,1 +1,1 @@
-from encoding import *
+from .encoding import *

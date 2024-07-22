@@ -8,7 +8,7 @@ import requests
 blog_id = "marcykatya"
 token = ""
 
-posts_list = openPostsList(blog_id)
+posts_list = openBlogFile(blog_id)
 
 # "reactions": {
 #                 "heart": 6,

@@ -1,0 +1,6 @@
+@echo off
+echo Requirements install...
+pip install -r requirements.txt
+echo Run...
+python -m main.py
+pause

@@ -10,7 +10,6 @@ def buildDirRecu(path:str):
     for part in path_parts[:-1]:
         temp_path += f"{part}/"
         mkdirIfNotExist(temp_path)
-        print(temp_path)
 
 def mkdirIfNotExist(dir):
     if not os.path.isdir(dir):
