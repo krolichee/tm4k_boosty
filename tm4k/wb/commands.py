@@ -1,10 +1,14 @@
+from functools import wraps
+
 import pandas as pd
-import numpy as np
 
 import requests
 
+import tm4k.modal
+
+from .df_utils import *
+
 from .format import *
-from tm4k.messages import TAGS_FILE_ALLREADY_EXIST_QUESTION, NO_ACCES_TO_TAGS_FILE_MESSAGE
 
 from ._names import *
 
@@ -12,20 +16,42 @@ from tm4k.fs.tags_file import *
 from tm4k.fs.blog_file import *
 from tm4k.post.edit_payload import getPostPayload
 
-from tm4k.links import getPostApiLink, getPostLink
+from tm4k.links import getPostApiLink
 from tm4k.post.field import *
+
+from tm4k.modal import *
+
+from tm4k.fs import openBlogFile, isBlogFileExists, saveBlog
+from tm4k.messages import BLOG_FILE_NOT_EXIST_MESSAGE, BLOG_FILE_EXISTS_REWRITE_QUESTION
+from tm4k.parse import parseBlog
+from tm4k.post.field import getPostPublishTs
+from tm4k.status_label import updateStatus
 
 
 # todo обновление файла с сохранением цветов тегов, комментариев и т.п.
 
+
+def startfile(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        blog_id = kwargs.get('blog_id')
+        if blog_id is not None:
+            startfileTagsFile(blog_id)
+        return result
+
+    return wrapper
+
+
+@startfile
+def importTagsFileByBlogId(blog_id: str):
+    blog = openBlogFile(blog_id)
+    if len(blog):
+        importTagsFileFromBlog(blog)
+
+
 def createTagListDf(tag_list: list) -> pd.DataFrame:
     return pd.DataFrame({'Тег': tag_list, 'Комментарий': [None] * len(tag_list)})
-
-
-def importTagsFileByBlogId(blog_id: str):
-    posts_list = openBlogFile(blog_id)
-    if posts_list is not None:
-        importTagsFileFromBlog(posts_list)
 
 
 def startfileTagsFile(blog_id: str):
@@ -34,166 +60,35 @@ def startfileTagsFile(blog_id: str):
 
 def importTagsFileFromBlog(posts_list: list):
     blog_id = getPostBlogId(posts_list[0])
-
-    if checkTagsFileExists(blog_id):
+    if isTagsFileExists(blog_id):
         if mb.ask(TAGS_FILE_ALLREADY_EXIST_QUESTION) == 'no':
             return
     else:
         buildDirRecu(getTagsFilePath(blog_id))
-
     tag_list = getTagListFromBlog(posts_list)
     tag_list_df = createTagListDf(tag_list)
     tag_matrix_df = createTagMatrixDf(posts_list, tag_list)
-    try:
-        writer = getTagsFileWriter(blog_id, 'w')
-    except:
-        mb.warn(NO_ACCES_TO_TAGS_FILE_MESSAGE)
-        return
-
+    writer = getTagsFileWriter(blog_id, 'w')
     tag_matrix_df = fillDividerColumn(tag_matrix_df)
-
     tag_list_df.to_excel(writer, index=False, sheet_name=TAG_LIST_SHEET_NAME)
     tag_matrix_df.to_excel(writer, index=False, sheet_name=TAGS_MATRIX_SHEET_NAME)
     workbook = writer.book
     formatWorkbook(workbook)
     writer._save()
+    updateStatus("Тегфайл создан")
 
 
-def fillDividerColumn(df: pd.DataFrame) -> pd.DataFrame:
-    df[TMDS] = df[TMDS].fillna(TMDS)
-    return df
-
-
-def updateTagMatrixTagsByBlogId(blog_id: str):
+def refreshTagMatrixTags(blog_id: str):
+    # fixme почему-то заполнение всех ячеек тегов
     writer = getTagsFileWriter(blog_id, 'a', 'replace')
-    workbook: Workbook = writer.book
-    new_tag_matrix_df = getUpdatedTagMatrixDfFromWorkbook(workbook)
-    new_tag_matrix_df = fillDividerColumn(new_tag_matrix_df)
-    new_tag_matrix_df.to_excel(excel_writer=writer, sheet_name=TAGS_MATRIX_SHEET_NAME, index=False)
-    formatWorkbook(workbook)
+    wb: Workbook = writer.book
+    reviseTagMatrixInWb(writer)
+    tag_matrix_df = getTagMatrixDf(wb)
+    print(tag_matrix_df)
+    tag_matrix_df.to_excel(excel_writer=writer, sheet_name=TAGS_MATRIX_SHEET_NAME, index=False)
+    wb: Workbook = writer.book
+    formatWorkbook(wb)
     writer._save()
-
-
-def splitDfByHeader(df: pd.DataFrame, header: str, shift: int = 0) -> tuple[pd.DataFrame, pd.DataFrame]:
-    right_index = list(df.keys()).index(header)
-    return splitDfByColumnIndex(df, right_index, shift)
-
-
-def getTagMatrixDfFromWorkbook(wb: Workbook):
-    return getDfFromWorksheet(wb[TAGS_MATRIX_SHEET_NAME])
-
-
-def getTagListDfFromWorkbook(wb: Workbook):
-    return getDfFromWorksheet(wb[TAG_LIST_SHEET_NAME])
-
-
-def splitDfByColumnIndex(df: pd.DataFrame, index: int, shift: int = 0) -> tuple[pd.DataFrame, pd.DataFrame]:
-    df1 = df.iloc[:, :(index + shift)]
-    df2 = df.iloc[:, (index + shift):]
-    return df1, df2
-
-
-def makeDfByHeaderListAndLength(header_list: list, length: int):
-    data = {}
-    for header in header_list:
-        data[header] = [None] * length
-    return pd.DataFrame(data)
-
-
-def addMissingHeaders(df: pd.DataFrame, header_list: list) -> pd.DataFrame:
-    for header in header_list:
-        if header not in df.columns:
-            df[header] = pd.NA
-    return df
-
-
-def sortDfByHeaderList(df: pd.DataFrame, header_list: list) -> pd.DataFrame:
-    all_cols = list(df.keys())
-    remaining_cols = [col for col in all_cols if col not in header_list]
-    final_order = header_list + remaining_cols
-    return df[final_order]
-
-
-def addAndSortByHeaderList(df: pd.DataFrame, header_list: list):
-    df = addMissingHeaders(df, header_list)
-    return sortDfByHeaderList(df, header_list)
-
-
-def replaceNotNullCellsToColumnHeaderDf(df: pd.DataFrame):
-    print(df)
-    for col in df.columns:
-        df[col] = np.where(df[col].isna(), pd.NA, col)
-        df[str(col)] = df[str(col)].apply(lambda x: col if True else pd.NA)
-        df[col] = df[col].apply(lambda x: pd.NA if pd.isna(x) else col)
-    return df
-
-
-def splitDfByDividerColumn(df: pd.DataFrame, column_name: str):
-    df1, df2_div = splitDfByHeader(df, column_name)
-    div_df, df2 = splitDfByHeader(df2_div, column_name, +1)
-    return df1, df2, div_df
-
-
-def getUpdatedTagMatrixDfFromWorkbook(wb: Workbook):
-    # TODO обработка повторяющихся столбцов
-    tag_list = getTagListFromWorkbook(wb)
-    tag_matrix_df = getTagMatrixDfFromWorkbook(wb)
-    df1, raw_matrix_df, div_df = splitDfByDividerColumn(tag_matrix_df, TAGS_MATRIX_DIVIDER_SYMBOL)
-    sorted_raw_matrix_df = addAndSortByHeaderList(raw_matrix_df, tag_list)
-    repl_sorted_raw_matrix_df = replaceNotNullCellsToColumnHeaderDf(sorted_raw_matrix_df)
-    new_tag_matrix_df = pd.concat([df1, div_df, repl_sorted_raw_matrix_df], axis=1)
-    return new_tag_matrix_df
-
-
-def getPostDict(post: dict):
-    result = {"Название": post["title"],
-              "Уровень подписки": getSubscrLvlName(post),
-              "ID": getPostId(post),
-              "TS": getPostPublishTs(post),
-              "Ссылка": getPostLink(post)
-              }
-    for tag_obj in post["tags"]:
-        tag = tag_obj["title"]
-        result[tag] = tag
-    return result
-
-
-def getPostDf(post):
-    post_row_dict = getPostDict(post)
-    post_df = pd.DataFrame(post_row_dict, index=[0])
-    return post_df
-
-
-def createTagMatrixDf(posts_list: list, tag_list: list):
-    df = pd.DataFrame(columns=TAGS_MATRIX_DF_COLS_LIST + [TAGS_MATRIX_DIVIDER_SYMBOL] + tag_list)
-    for post in posts_list:
-        post_df = getPostDf(post)
-        df = pd.concat([df, post_df], ignore_index=True)
-    return df
-
-
-def getDfFromWorksheet(ws: Worksheet):
-    data = ws.values
-    columns = [str(x) for x in next(data)]
-    df = pd.DataFrame(data, columns=columns)
-    return df
-
-
-def getTagListFromWorkbook(wb: Workbook) -> list:
-    tags_df = getTagListDfFromWorkbook(wb)
-    tag_list = [tag for tag in list(tags_df["Тег"]) if tag is not None]
-    return tag_list
-
-
-def mergeMatrixPostsOnly(blog_id):
-    writer = getTagsFileWriter(blog_id, mode='a', if_sheet_exists='replace')
-    wb = writer.book
-    m_df_a = getDfFromWorksheet(wb["Матрица тегов A"])
-    m_df_b = getDfFromWorksheet(wb["Матрица тегов B"])
-    print(m_df_b[TAGS_MATRIX_DF_COLS_LIST])
-    print(m_df_b.loc[~m_df_b['ID'].isin(m_df_a['ID']), 'ID'])
-
-    unique_values_list_b = m_df_b.loc[~m_df_b['ID'].isin(m_df_a['ID']), 'ID'].tolist()
 
 
 def merge(blog_id):
@@ -213,51 +108,65 @@ def merge(blog_id):
     print(unique_values_list_b)
 
 
-def updateMatrixPostsByBlogId(blog_id: str):
-    writer = getTagsFileWriter(blog_id, 'a')
-    wb = writer.book
-    matrix_df = getTagMatrixDfFromWorkbook(wb)
-    posts_list = openBlogFile(blog_id)
-    matrix_df_id_list = list(matrix_df["ID"])
+def updateMatrixDfWithBlog(df: pd.DataFrame, blog: Blog):
     new_ids = []
-    for post in posts_list:
+    matrix_df_id_list = list(df["ID"])
+    for post in blog:
         post_id = getPostId(post)
         if post_id not in matrix_df_id_list:
             post_df = getPostDf(post)
-            matrix_df = pd.concat([matrix_df, post_df], ignore_index=True, axis='rows')
+            df = pd.concat([df, post_df], ignore_index=True, axis='rows')
             new_ids.append(post_id)
-    matrix_df = matrix_df.sort_values(by='TS', ascending=False)
-    matrix_df.to_excel(writer, "updateMatrixPostsByBlogId", index=False)
+    return df, new_ids
+
+
+def updateMatrixPostsByBlogId(blog_id: str):
+    writer = getTagsFileWriter(blog_id, 'a',if_sheet_exists='replace')
     wb = writer.book
-    highlightRowWhereIn(wb["updateMatrixPostsByBlogId"], "ID", new_ids)
+    blog = openBlogFile(blog_id)
+    matrix_df = getTagMatrixDf(wb)
+
+    matrix_df,new_ids = updateMatrixDfWithBlog(matrix_df, blog)
+    matrix_df = matrix_df.sort_values(by='TS', ascending=False)
+    matrix_df.to_excel(writer, TAGS_MATRIX_SHEET_NAME, index=False)
+
+    wb = writer.book
+    highlightRowWhereIn(wb[TAGS_MATRIX_SHEET_NAME], "ID", new_ids)
     writer._save()
 
 
-def restoreTs(blog_id):
-    posts_list = openBlogFile(blog_id)
-    post_id_ts_list = {'ID': [],
-                       'TS': []}
-    for post in posts_list:
+def getIdTsDfFromBlog(blog: Blog):
+    post_id_ts_list = {'ID': [], 'TS': []}
+    for post in blog:
         post_id = getPostId(post)
-        post_id_ts_list['ID'].append(post_id)
         ts = getPostPublishTs(post)
+        post_id_ts_list['ID'].append(post_id)
         post_id_ts_list['TS'].append(ts)
+    return pd.DataFrame(post_id_ts_list)
+
+
+def restoreTs(blog_id):
+    blog = openBlogFile(blog_id)
     writer = getTagsFileWriter(blog_id, mode='a', if_sheet_exists='replace')
     wb = writer.book
     no_ts_ws = wb[TAGS_MATRIX_SHEET_NAME]
     no_ts_df = getDfFromWorksheet(no_ts_ws)
-    post_ids_df = pd.DataFrame(post_id_ts_list)
+    post_ids_df = getIdTsDfFromBlog(blog)
     restored_df = no_ts_df.merge(post_ids_df, how="left", on="ID")
-
-    missing_ts_mask = restored_df['TS'].isna()
-    restored_df.loc[missing_ts_mask, 'TS'] = restored_df.loc[missing_ts_mask, 'ID'].apply(lambda x: getPostPublishTs(
-        requests.get(
-            getPostApiLink(blog_id, x))
-        .json()))
     restored_df = sortDfByHeaderList(restored_df, TAGS_MATRIX_DF_COLS_LIST)
     restored_df = restored_df.sort_values(by='TS', ascending=False)
     restored_df.to_excel(writer, "Матрица тегов Restored TS", index=False)
     writer._save()
+
+
+def refreshTagFile(blog_id):
+    choice_dict = {"Обновить посты": updateMatrixPostsByBlogId,
+                   "Обновить поля тегов": refreshTagMatrixTags,
+                   "Обновить форматирование": normalizeAndFormatTagsFile}
+    choice = showMultipleChoiceModal("Обноление файла тегов", list(choice_dict.keys()))
+    for i in range(len(choice)):
+        if choice[i]:
+            list(choice_dict.values())[i](blog_id)
 
 
 def normalizeAndFormatTagsFile(blog_id):
@@ -265,6 +174,7 @@ def normalizeAndFormatTagsFile(blog_id):
     wb: Workbook = writer.book
     ws: Worksheet = wb[TAGS_MATRIX_SHEET_NAME]
     df = getDfFromWorksheet(ws)
+
     df = replaceNotNullCellsToColumnHeaderDf(df)
     df.to_excel(writer, TAGS_MATRIX_SHEET_NAME, index=False)
     formatWorkbook(wb)
@@ -300,11 +210,30 @@ def publish(blog_id: str, token: str):
         print(response.text)
 
 
-def getTagListFromBlog(posts_list):
-    tag_list = []
-    for post in posts_list:
-        for tag_obj in post["tags"]:
-            tag = tag_obj["title"]
-            if tag not in tag_list:
-                tag_list.append(tag)
-    return tag_list
+def updateBlog(blog_id: str, token: str):
+    cur_blog = openBlogFile(blog_id)
+    if not cur_blog:
+        return
+    last_post = cur_blog[0]
+    from_ts = getPostPublishTs(last_post) + 1
+    new_posts_blog = parseBlog(blog_id, token, from_ts)
+    updated_blog = new_posts_blog + cur_blog
+    return updated_blog
+
+
+def refreshBlogFile(blog_id: str, token: str):
+    if not isBlogFileExists(blog_id):
+        updateStatus(BLOG_FILE_NOT_EXIST_MESSAGE)
+        parseBlogToFile(blog_id, token)
+        return
+    updated_blog = updateBlog(blog_id, token)
+    saveBlog(updated_blog)
+
+
+def parseBlogToFile(blog_id: str, token: str):
+    if isBlogFileExists(blog_id):
+        if not mb.ask(BLOG_FILE_EXISTS_REWRITE_QUESTION) == 'yes':
+            return
+    updateStatus("Начало загрузки блога...")
+    blog = parseBlog(blog_id, token)
+    saveBlog(blog)

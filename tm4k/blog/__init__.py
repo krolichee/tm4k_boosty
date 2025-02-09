@@ -1,4 +1,5 @@
 from importlib.metadata import DeprecatedList
+from typing import Iterable
 
 from tm4k.post.field import *
 
@@ -13,9 +14,7 @@ def isAllBlogIdCommon(posts_list):
     return True
 
 
-class Blog(DeprecatedList):
-    blog_id = ""
-
+class Blog(DeprecatedList,Iterable):
     def __init__(self, posts_list: list):
         super().__init__(posts_list)
         if not isAllBlogIdCommon(self):
@@ -28,3 +27,4 @@ class Blog(DeprecatedList):
                 return False
         else:
             return True
+

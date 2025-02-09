@@ -7,3 +7,11 @@ def ask(message:str)->str:
 
 def warn(message):
     messagebox.showwarning("!!", message)
+
+
+def err(message):
+    messagebox.showerror("XX",message)
+
+
+def unexp():
+    err("Произошло нечто неожиданное")

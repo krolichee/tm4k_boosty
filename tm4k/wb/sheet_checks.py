@@ -15,5 +15,5 @@ def isSheetExists(wb: Workbook, name: str) -> bool:
     try:
         _ = wb[name]
         return True
-    except:
+    except KeyError:
         return False

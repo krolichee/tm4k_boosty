@@ -1,3 +1,3 @@
 from .config import *
 from .modal import *
-import messagebox_shorts as mb
+import tm4k.modal.messagebox_shorts as mb

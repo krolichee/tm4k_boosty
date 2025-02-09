@@ -66,6 +66,7 @@ def highlightRowWhere(ws: Worksheet, column_header: str, value: str | int):
 
 def highlightRowWhereIn(ws: Worksheet, column_header: str, value_list: list):
     column_number = getColumnNumberByHeader(ws, column_header)
+    print(column_number)
     for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         if row[column_number - 1].value in value_list:
             for cell in row:
